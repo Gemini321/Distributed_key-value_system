@@ -1,0 +1,57 @@
+syntax = "proto3";
+option go_package="./KVService";
+package KVService;
+
+service Handler {
+    rpc Put(KV) returns (Response) {}
+    rpc Get(KV) returns (Response) {}
+    rpc Delete(KV) returns (Response) {}
+    rpc GetLeaderID(LeaderID) returns (LeaderID) {}
+    rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply) {}
+    rpc AppendEntries(AppendEntriesArg) returns (AppendEntriesReply) {}
+}
+
+message KV {
+    bytes Key = 1;
+    bytes Value = 2;
+}
+
+message Response {
+    string Msg = 1;
+    KV ReturnKV = 2;
+}
+
+message RequestVoteArgs {
+    int64 Term = 1;
+    int64 CandidateId = 2;
+    int64  LastLogIndex = 3;
+    int64  LastLogTerm = 4;
+}
+
+message RequestVoteReply {
+    int64 Term = 1;
+    bool VoteGranted = 2;
+}
+
+message LogEntry {
+    bytes Command = 1;
+    int64 Term = 2;
+}
+
+message AppendEntriesArg {
+    int64 Term = 1;
+    int64 LeaderId = 2;
+    int64 PrevLogIndex = 3;
+    int64 PrevLogTerm = 4;
+    repeated LogEntry Entries = 5;
+    int64 LeaderCommit = 6;
+}
+
+message AppendEntriesReply {
+    int64 Term = 1;
+    bool Success = 2;
+}
+
+message LeaderID {
+    int64 Id = 1;
+}
