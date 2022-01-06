@@ -12,6 +12,11 @@ service Handler {
     rpc AppendEntries(AppendEntriesArg) returns (AppendEntriesReply) {}
 }
 
+enum OperationType {
+    PUT = 0;
+    DELETE = 1;
+}
+
 message KV {
     bytes Key = 1;
     bytes Value = 2;
@@ -35,8 +40,10 @@ message RequestVoteReply {
 }
 
 message LogEntry {
-    bytes Command = 1;
-    int64 Term = 2;
+    OperationType Op = 1;
+    KV KeyVal = 2;
+    int64 Term = 3;
+    int64 ChanId = 4;
 }
 
 message AppendEntriesArg {

@@ -29,11 +29,27 @@ func main() {
 		log.Fatal("Fail to connect:", err)
 	}
 	c = KVService.NewHandlerClient(conn)
+	fmt.Printf("Connect to Leader with ID = %d\n", returnID)
 
 	// send requests
 	key := []byte("hello")
 	value := []byte("world")
 	kv := KVService.KV{Key: key, Value: value}
 	response, err := c.Put(context.Background(), &kv)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Put key-value (%s, %s)\n", response.ReturnKV.Key, response.ReturnKV.Value)
+
+	response, err = c.Get(context.Background(), &kv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Get key-value (%s, %s)\n", response.ReturnKV.Key, response.ReturnKV.Value)
+
+	response, err = c.Delete(context.Background(), &kv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Delete key-value (%s, %s)\n", response.ReturnKV.Key, response.ReturnKV.Value)
 }
