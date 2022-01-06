@@ -7,6 +7,7 @@ service Handler {
     rpc Get(KV) returns (Response) {}
     rpc Delete(KV) returns (Response) {}
     rpc GetLeaderID(LeaderID) returns (LeaderID) {}
+    rpc GetState(State) returns (State) {}
     rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply) {}
     rpc AppendEntries(AppendEntriesArg) returns (AppendEntriesReply) {}
 }
@@ -54,4 +55,8 @@ message AppendEntriesReply {
 
 message LeaderID {
     int64 Id = 1;
+}
+
+message State {
+    int64 state = 1;
 }

@@ -79,6 +79,13 @@ func (s *Server) GetLeaderID(ctx context.Context, id *kv.LeaderID) (*kv.LeaderID
 	return id, nil
 }
 
+func (s *Server) GetState(ctx context.Context, sta *kv.State) (*kv.State, error) {
+	s.mu.Lock()
+	sta.State = int64(s.state)
+	s.mu.Unlock()
+	return sta, nil
+}
+
 func (s *Server) debugLog(format string, args ...interface{}) {
 	if debug {
 		format = fmt.Sprintf("[%d] ", s.sid) + format
@@ -136,6 +143,7 @@ func (s *Server) AppendEntries(ctx context.Context, args *kv.AppendEntriesArg) (
 	}
 
 	// handle heartbeat message
+	s.leaderId = args.LeaderId
 	if s.curTerm == args.Term {
 		// restrain candidate to be a follower
 		if s.state != Follower {
@@ -215,6 +223,10 @@ func (s *Server) startElection() {
 
 	for i := 0; i < PeerNum; i ++ {
 		go func(i int) {
+			state := kv.State{}
+			if sta, err := s.peerHandlers[i].GetState(context.Background(), &state); err == nil && State(sta.State) == Dead  {
+				return
+			}
 			voteReq := kv.RequestVoteArgs{Term: savedCurTerm, CandidateId: s.sid}
 			if voteReply, err := s.peerHandlers[i].RequestVote(context.Background(), &voteReq); err == nil {
 				s.mu.Lock()
@@ -261,6 +273,7 @@ func (s *Server) becomeFollower(term int64) {
 
 func (s *Server) startLeader() {
 	s.state = Leader
+	s.leaderId = s.sid
 	s.debugLog("Become leader with term-%d\n", s.curTerm)
 
 	go func() {
@@ -285,12 +298,16 @@ func (s *Server) leaderHeartbeats() {
 	s.mu.Lock()
 	savedCurTerm := s.curTerm
 	s.mu.Unlock()
-	s.debugLog("Leader sending heartbeats")
+	//s.debugLog("Leader sending heartbeats")
 
 	// send heartbeat to peers
 	for i := 0; i < PeerNum; i ++ {
 		appendReq := kv.AppendEntriesArg{Term: savedCurTerm, LeaderId: s.sid}
 		go func(i int) {
+			state := kv.State{}
+			if sta, err := s.peerHandlers[i].GetState(context.Background(), &state); err == nil && State(sta.State) == Dead {
+				return
+			}
 			appendReply, err := s.peerHandlers[i].AppendEntries(context.Background(), &appendReq)
 			if err != nil {
 				log.Fatal(err)
@@ -310,22 +327,32 @@ func (s *Server) leaderHeartbeats() {
 
 func (s *Server) syncPut(in *kv.KV) error {
 	for i := 0; i < PeerNum; i ++ {
-		_, err := s.peerHandlers[i].Put(context.Background(), in)
-		if err != nil {
-			log.Fatal("Fail to sync put request in peer database:", err)
-		}
-		return err
+		go func(i int) {
+			state := kv.State{}
+			if sta, err := s.peerHandlers[i].GetState(context.Background(), &state); err == nil && State(sta.State) == Dead {
+				return
+			}
+			_, err := s.peerHandlers[i].Put(context.Background(), in)
+			if err != nil {
+				log.Fatal("Fail to sync put request in peer database:", err)
+			}
+		}(i)
 	}
 	return nil
 }
 
 func (s *Server) syncDelete(in *kv.KV) error {
 	for i := 0; i < PeerNum; i ++ {
-		_, err := s.peerHandlers[i].Delete(context.Background(), in)
-		if err != nil {
-			log.Fatal("Fail to sync delete request in peer database:", err)
-		}
-		return err
+		go func(i int) {
+			state := kv.State{}
+			if sta, err := s.peerHandlers[i].GetState(context.Background(), &state); err == nil && State(sta.State) == Dead {
+				return
+			}
+			_, err := s.peerHandlers[i].Delete(context.Background(), in)
+			if err != nil {
+				log.Fatal("Fail to sync delete request in peer database:", err)
+			}
+		}(i)
 	}
 	return nil
 }
